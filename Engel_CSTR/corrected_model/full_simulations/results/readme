@@ -1,0 +1,15 @@
+A:
+    Obj to follow only states x[0] & x[3]
+    for  k:N-1 obj*.0
+
+B:
+    Obj to follow only states x[0] & x[3]
+    for  k:N-1 obj*.01
+
+C:
+    Obj to follow only states x[0] & x[3]
+    for  k:N-1 obj*0.001
+
+
+D:
+    Obj to follow all states

@@ -1,0 +1,9 @@
+Consider the three kinds of information a decision-maker might possess about the future values of certain variables that are relevant to his decision: 
+(a) He might know these future values with certainty; 
+(b) He might know their unconditional expected values; 
+(c) He might know the joint probability distribution of the variables over the whole sequence of future time periods. 
+The initial task of the decision-maker is to determine his course of action for the first time period. At the end of that period, and on the basis of the new in- formation then available to him, he chooses a course of action for the second period, and so on. 
+
+Certainty-equivalent Method.
+ If the decision-maker knows (c), he can compute the expected values of (b), and (if he wishes to do so) he can behave as if these expected values were the (unknown) certain values of (a). If he does so, he has transformed his problem into one of dynamic programming under certainty. Having solved the latter problem, he can take the action for the first period that is indicated as optimal by this procedure. At the end of the first period, he will have new initial conditions and a new joint probability distribution, (c), from which he can obtain new expected values (b), which he can again employ in place of (a) in choosing a course of action for the second period; and so on. It is important to observe that the decision-maker, in order to apply this procedure, does not in fact need to know (c), but only (b).
+
