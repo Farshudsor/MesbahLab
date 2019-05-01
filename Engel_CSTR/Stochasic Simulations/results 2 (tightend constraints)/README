@@ -1,9 +1,0 @@
-Constraints
-
-uk_lb = [0,                     280]
-uk_ub = [9*10**(-6)*discritize, 350]
-#xk_lb = [0,      0,  0,   0,   321, 0,   0]
-#xk_ub = [.007,  inf, inf, inf, 325, inf, inf]
-xk_lb = [0,      0,  0,   0,   322, 0,   0]
-xk_ub = [.007,  inf, inf, inf, 324, inf, inf]
-
