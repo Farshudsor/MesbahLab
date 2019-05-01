@@ -1,0 +1,9 @@
+The scripts in this folder were last updated on: ACTIVE
+
+The scripts are an attempt to replicate the case study from Tse1973b. 
+
+CHANGES
+1) change the script from estimating 6 parameters to 2 parameters
+2) reverted to soft landing; setpoint tracking had very poor performance due highly dynamical system
+
+

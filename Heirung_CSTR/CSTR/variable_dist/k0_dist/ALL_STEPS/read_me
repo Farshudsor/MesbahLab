@@ -1,0 +1,9 @@
+All_STEPS
+
+distrubances step_up 10% incress in k0,
+distrubances step_down 10% decress in k0 
+distrubances step_updown 10% incress in k0, then returns to original k0
+distrubances step_downup 10% decress in k0, then returns to original k0 
+
+single steps occure at step 25
+multistep occures at steps 25 and 60 

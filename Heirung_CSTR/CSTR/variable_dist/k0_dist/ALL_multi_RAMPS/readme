@@ -1,0 +1,8 @@
+All_multi_RAMPS
+
+distrubances ramp_updown = 10% incress in k0, then returns to orgiginal value
+distrubances ramp_downup = 10% decress in k0, then returns to orgiginal value 
+
+slow = 10% change over 40 timesteps; start,change_dir,end= 10,50,90 
+fast = 10% change over 20 timesteps; start,change_dir,end= 30,50,70
+ 
