@@ -1,0 +1,18 @@
+
+Tube adjustments
+0.998alpha_u_1.0alpha_l1.0beta_u_1.0beta_l
+
+W10 :
+   viol_pen=10
+
+W0:
+   viol_pen=0
+
+W1E9:
+   viol_pen=1E9
+
+E:
+   viol_pen = .1
+
+F:
+   viol_pen = 0

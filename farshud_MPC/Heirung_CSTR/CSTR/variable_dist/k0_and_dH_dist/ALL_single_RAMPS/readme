@@ -1,0 +1,10 @@
+All_single_RAMPS
+
+distrubances ramp_up 10% incress in k0,
+distrubances ramp_down 10% decress in k0 
+
+slow = 10% change over 60 timesteps(6 min); start,end=25,85 (2.5, 8.5 min)  
+med = 10% change over 40 timesteps; start,end=25,65 
+fast = 10% change over 20 timesteps; start,end=25,45
+
+

@@ -1,0 +1,5 @@
+The scripts in this folder were last updated on 7.19.18
+
+The scripts are an attempt to replicate the case study from Tse1973b. 
+
+The script is not correcttly formulated. The CE control problem uses the augmented model. Both the CE and Dual problems are solved consecutivly each loop

@@ -1,0 +1,14 @@
+
+Tube adjustments
+0.998alpha_u_1.0alpha_l0.98beta_u_1.0beta_l
+
+A :
+  Wx k:N-1=.01, viol_pen=1E6
+
+B:
+  Wx k:N-1=.00, viol_pen=10
+
+C:
+  actual parameters not provided - failed
+D:
+  soft constraint dual using slack
