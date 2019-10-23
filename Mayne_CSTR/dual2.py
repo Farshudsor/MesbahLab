@@ -114,7 +114,7 @@ def tube_mpc(F_ode,n_pred,n_ctrl,n_st,n_par,n_ip,uk_lb,uk_ub,xk_lb,xk_ub,xk,uk,
         x_end = F_ode(x0=Xk, p=vertcat(Uk))
         xk_end = x_end['xf']
 
-        Jce = Jce + mtimes(mtimes((Xk- xk_ref[k,:].T).T,Qx),(Xk- xk_ref[k,:].T))
+        Jce = Jce + mtimes(mtimes((Xk- xk_ref[i,:].T).T,Qx),(Xk- xk_ref[i,:].T))
 
         #import pdb; pdb.set_trace()
         Xk = MX.sym('X_'+str(i+1),n_st)
