@@ -20,7 +20,7 @@ import time as Time
 #########################################
 ##  Set-up
 ######################################
-csv_file = "./results/"+testname+"_"+run_name+".csv"
+csv_file = "./results/"+testname+"_"+"results.csv"
 csv_file2 = "./results/"+testname+"_stocastic_values.csv"
 csv_file3 = "./results/"+testname+"_time.csv"
 save2csv = True
@@ -34,7 +34,7 @@ runC4 = 1
 runC5 = 0
 runC6 = 0
 
-Tsamp = 3
+Tsamp = 4
 run_time = 600
 discritize = 60 * Tsamp # [=] seconds/(min) ; discritze in two min
 #Define the controller
@@ -71,10 +71,9 @@ uk_lb = [0];        uk_ub = [2]
 xk_lb = [0, 0 ];    xk_ub = [1, 1]
 
 # generate noise
-A = np.random.uniform(0,.001,run_time*Tsamp)
-omega = np.random.uniform(0,1,run_time*Tsamp)
-wkp = np.zeros((run_time*Tsamp, n_st))
-wkp[:,1] = A*np.sin(omega)
+A = np.random.uniform(0,.001,run_time*Tsamp).T
+omega = np.random.uniform(0,1,run_time*Tsamp).T
+wkp = A*np.sin(omega)
 
 #Build results storage
 time = np.zeros((run_time,1))
@@ -380,114 +379,6 @@ if runC3:
             res3_theta[k+1,:] = [theta_par[0],theta_par[1]]
     solve_time[2] =  Time.time() - start
 
-if gen_nom:
-    start = time.time()
-
-    xk = SX.sym('xk',n_st)
-    uk = SX.sym('uk',n_ip)
-    wk = SX.sym('wk',n_st+n_par)
-    vk = SX.sym('vk',n_st)
-    thetah = SX.sym('thetah',n_par)
-    zk = vertcat(xk,thetah)
-
-    n_pred = 10
-
-    #Define the system equations with unknown parameters
-    de1 = uk[0]
-    de2 = -(uk[0]/xk[0])*xk[1] - thetah[0]*xk[1]*xk[2]
-    de3 = (uk[0]/xk[0])*(Cbin-xk[2]) - thetah[0]*xk[1]*xk[2]
-    de4 = -(uk[0]/xk[0])*xk[3] + thetah[0]*xk[1]*xk[2]
-    de5 = (uk[0]/xk[0])*(Tin - xk[4]) - (U*((2*xk[0]/r)-pi*r**2)*(xk[4]-xk[5]))/(rho*cp*xk[0]) - (thetah[0]*xk[1]*xk[2]*thetah[1])/(rho*cp)
-    de6 = (Vjin/Vj) * (xk[6]-xk[5]) + (U*((2*xk[0]/r)-pi*r**2)*(xk[4]-xk[5]))/(rho*cp*Vj)
-    de7 = (1/tau_c)* (uk[1]-xk[6])
-    dthetah1 = [0]*thetah[0]
-    dthetah2 = [0]*thetah[1]
-
-    sys_ode = vertcat(de1,de2,de3,de4,de5,de6,de7)
-    mdl_ode =vertcat(de1,de2,de3,de4,de5,de6,de7,dthetah1,dthetah2)
-    mdl_ode2 =vertcat(de1+wk[0],de2+wk[1],de3+wk[2],de4+wk[3],de5+wk[4],de6+wk[5],de7+wk[6],dthetah1,dthetah2)
-
-    ode = {'x':xk, 'p':vertcat(thetah,uk), 'ode':sys_ode}
-    F_ode = integrator('F_ode', 'cvodes', ode)
-
-    m_ode = {'x':zk, 'p':uk, 'ode':mdl_ode }
-    M_ode = integrator('M_ode', 'cvodes', m_ode)
-
-    #Jacobians for predictions
-    Jx = Function('Jx',[xk,uk,thetah],[jacobian((xk+sys_ode),xk)])
-    Jz = Function('Jz',[xk,uk,thetah],[jacobian((vertcat(xk,thetah)+mdl_ode),vertcat(xk,thetah))])
-    Ju = Function('Ju',[xk,uk,thetah],[jacobian((vertcat(xk,thetah)+mdl_ode),uk)])
-    L   = Function('L' ,[xk,uk,thetah,wk],[jacobian((vertcat(xk,thetah)+mdl_ode2),wk)])
-
-    #Output equation (Observations)
-    C = np.eye(n_st)
-    fy = mtimes(C,xk) + vk
-    h = Function('h',[xk,vk], [fy])
-    Ch = Function('Ch',[vertcat(xk,thetah)],[jacobian(fy,vertcat(xk,thetah))])
-    Chx = Function('Chx',[xk],[jacobian(fy,xk)])
-
-    uk_opt = np.array([2.5*10**(-6)*discritize,280])
-    xkp = np.array([V0, Ca0,Cb0,Cc0,T0,Tj0,Tj0_in])
-    theta_par = theta_nom
-    xkh0 = xkp
-    zkh0 =vertcat(xkh0,theta_par)
-    Sigmak_p = Qz
-
-    #storing the results
-    res_uk[0,:] = np.array([2.5*10**(-6),280])
-    res_xk[0,:] = np.array([V0, Ca0,Cb0,Cc0,T0,Tj0,Tj0_in])
-    res_theta[0,:] = theta_nom
-
-    for k in range(run_time):
-        time[k] = k
-
-        time_remain = run_time - k
-        if time_remain < n_pred:
-            n_pred = time_remain
-
-        #Compute the measurement
-        ykp = h(xkp,0*vkp[k,:].T)
-        #KF update step/measurment
-        Czh = Ch(zkh0)
-        Kkh = mtimes(Sigmak_p,mtimes(Czh.T,np.linalg.inv(mtimes(Czh,mtimes(Sigmak_p,Czh.T)) + R)))
-        zkh0 = zkh0 + mtimes(Kkh,(ykp - h(zkh0[0:n_st],np.zeros((n_st,1)))))
-        xkh0 = zkh0[0:n_st]
-        theta_par = zkh0[n_st:]
-        Sigmak = mtimes((np.eye(n_st+n_par) - mtimes(Kkh,Czh)),Sigmak_p)
-
-        Jce, qu_ce, lbq, ubq, g, lbg, ubg, qu_init = Dual.opt_mpc(F_ode,n_pred,n_ctrl,n_st,n_par,n_ip,uk_lb,uk_ub,xk_lb,xk_ub,xk,theta_par,uk,Tsamp,xkh0,uk_opt)
-        qp_mpc = {'x':vertcat(*qu_ce), 'f':Jce, 'g':vertcat(*g)}
-        solver_mpc = nlpsol('solver_mpc', MySolver, qp_mpc,{'ipopt':{'max_iter':1000,"check_derivatives_for_naninf":'yes', "print_user_options":'yes' }})
-        res_mpc = solver_mpc(x0=qu_init, lbx=lbq, ubx=ubq, lbg=lbg, ubg=ubg)
-        uk_ce = res_mpc['x'].full().flatten()
-        uk_opt = uk_ce[n_st:n_st+n_ip]
-        #import pdb; pdb.set_trace()
-        #Simulate the system
-        x_end = F_ode(x0=xkp, p=vertcat(theta_act,uk_opt))
-        xkp = x_end['xf'].full()
-        xkp = xkp.T #+ wkp[k,:]
-
-        #KF prediction
-        Az = Jz(xkh0,uk_opt,theta_par)
-        Jw = L(xkh0,uk_opt,theta_par,wkp[k,:])
-        z_end = M_ode(x0=zkh0, p=uk_opt)
-        zkh0 = z_end['xf'].full()
-        Sigmak_p = mtimes(Az,mtimes(Sigmak,Az.T)) + Jw*Qz*Jw.T
-
-
-        if k < run_time-2:
-            # Save results
-            uk_opt[0] = uk_opt[0]/discritize
-            res_uk[k+1,:] =uk_opt # [uk_opt[0],uk_opt[1]]
-            uk_opt[0] = uk_opt[0]*discritize
-
-            res_xk[k+1,:] =xkp # [xkp[0,0],xkp[0,1]]
-            res_theta[k+1,:] =theta_par.T# [theta_par[0],theta_par[1]]
-        else:
-            res_xk[k+1,:] =xkp# [xkp[0,0],xkp[0,1]]
-            res_theta[k+1,:] =theta_par.T# [theta_par[0],theta_par[1]]
-    solve_time[0] =  time.time() - start
-
 if runC4:
     start = Time.time()
     n_pred = 140
@@ -498,21 +389,20 @@ if runC4:
     #Define the system states
     xk4 = SX.sym('xk4',n_st)
     uk4 = SX.sym('uk4',n_ip)
-    wk4 = SX.sym('wk4',n_st)
-    vk4 = SX.sym('vk4',n_st)
+    wk4 = SX.sym('wk4',1)
 
     #Define the system equations with unknown parameters
     dx1= (1/theta)*(1-xk4[0])- k0*xk4[0]*exp(-M/xk4[1])
-    dx2=(1/theta)*(xf-xk4[1])+ k0*xk4[0]*exp(-M/xk4[1]) - alpha*uk4[0]*(xk4[1]-xc) +wk4[1]
-    dx2w= (1/theta)*(xf-xk4[1])+k0*xk4[0]*exp(-M/xk4[1]) - alpha*uk4[0]*(xk4[1]-xc)+wk4[1]
+    dx2=(1/theta)*(xf-xk4[1])+ k0*xk4[0]*exp(-M/xk4[1]) - alpha*uk4[0]*(xk4[1]-xc)
+    dx2w= (1/theta)*(xf-xk4[1])+k0*xk4[0]*exp(-M/xk4[1]) - alpha*uk4[0]*(xk4[1]-xc)+ wk4[0]
 
     sys_ode = vertcat(dx1,dx2w)
     mdl_ode =vertcat(dx1,dx2)
 
-    f_ode = {'x':xk4, 'p':uk4, 'ode':sys_ode}
+    f_ode = {'x':xk4, 'p':vertcat(uk4,wk4), 'ode':sys_ode}
     F_ode = integrator('F_ode', 'cvodes', f_ode)
 
-    m_ode = {'x':xk4, 'p':vertcat(uk4,wk4) 'ode':mdl_ode }
+    m_ode = {'x':xk4, 'p':uk4, 'ode':mdl_ode }
     M_ode = integrator('M_ode', 'cvodes', m_ode)
 
     uk_opt = .71
@@ -525,9 +415,19 @@ if runC4:
     for k in range(run_time):
         time[k] = k
 
+        time_remain = run_time - k
+        if time_remain < n_pred:
+            n_pred = time_remain
+
+        print('*****************************')
+        print('********  ', k ,'  ****************')
+        print('*****************************')
+
         if k%Tsamp ==0:
-            res_xk_p = res_xk[k:k+n_pred]
+            res_xk_p = res_xk[k:k+n_pred,:]
             res_uk_p = res_uk[k:k+n_pred]
+            if k == 144:
+                import pdb; pdb.set_trace()
             Jce, qu_ce, lbq, ubq, g, lbg, ubg, qu_init = Dual.tube_mpc(M_ode,n_pred,n_ctrl,n_st,n_par,n_ip,uk_lb,uk_ub,xk_lb,xk_ub,xk4,uk4,Tsamp,xkp,uk_opt,res_xk_p,res_uk_p,k-1)
             qp_mpc = {'x':vertcat(*qu_ce), 'f':Jce, 'g':vertcat(*g)}
             solver_mpc = nlpsol('solver_mpc', MySolver, qp_mpc,{'ipopt':{'max_iter':1000,"check_derivatives_for_naninf":'yes', "print_user_options":'yes' }})
@@ -692,175 +592,6 @@ if runC5:
             res5_theta[k+1,:] = [theta_par[0],theta_par[1]]
 
     solve_time[4] =  Time.time() - start
-
-if runC6:
-    start = Time.time()
-
-    #########################################
-    ##  Define system
-    ######################################
-    #Define the system states
-    xk3 = SX.sym('xk3',n_st)
-    uk3 = SX.sym('uk3',n_ip)
-    wk3 = SX.sym('wk3',n_st+n_par)
-    vk3 = SX.sym('vk3',n_st)
-    thetah3 = SX.sym('thetah3',n_par)
-    zk3 = vertcat(xk3,thetah3)
-
-    slack  = SX.sym('slack', n_st)
-
-    n_pred = 10
-
-    #Define the system equations with unknown parameters
-    de1 = uk3[0]
-    de2 = -(uk3[0]/xk3[0])*xk3[1] - thetah3[0]*xk3[1]*xk3[2]
-    de3 = (uk3[0]/xk3[0])*(Cbin-xk3[2]) - thetah3[0]*xk3[1]*xk3[2]
-    de4 = -(uk3[0]/xk3[0])*xk3[3] + thetah3[0]*xk3[1]*xk3[2]
-    de5 = (uk3[0]/xk3[0])*(Tin - xk3[4]) - (U*((2*xk3[0]/r)-pi*r**2)*(xk3[4]-xk3[5]))\
-            /(rho*cp*xk3[0]) - (thetah3[0]*xk3[1]*xk3[2]*thetah3[1])/(rho*cp)
-    de6 = (Vjin/Vj) * (xk3[6]-xk3[5]) + (U*((2*xk3[0]/r)-pi*r**2)*(xk3[4]-xk3[5]))/\
-            (rho*cp*Vj)
-    de7 = (1/tau_c)* (uk3[1]-xk3[6])
-    dthetah1 = [0]*thetah3[0]
-    dthetah2 = [0]*thetah3[1]
-
-    sys_ode = vertcat(de1,de2,de3,de4,de5,de6,de7)
-    mdl_ode =vertcat(de1,de2,de3,de4,de5,de6,de7,dthetah1,dthetah2)
-    mdl_ode2 =vertcat(de1+wk3[0],de2+wk3[1],de3+wk3[2],de4+wk3[3],de5+wk3[4],
-                        de6+wk3[5],de7+wk3[6],dthetah1,dthetah2)
-
-    #Jacobians for predictions
-    Jz3 = Function('Jz3',[xk3,uk3,thetah3],[jacobian((vertcat(xk3,thetah3)+mdl_ode),
-                    vertcat(xk3,thetah3))])
-    Ju3 = Function('Ju3',[xk3,uk3,thetah3],[jacobian((vertcat(xk3,thetah3)+mdl_ode),
-                    uk3)])
-    L3   = Function('L3'  ,[xk3,uk3,thetah3,wk3],[jacobian((vertcat(xk3,thetah3)+
-                    mdl_ode2),wk3)])
-
-    ode = {'x':xk3, 'p':vertcat(thetah3,uk3), 'ode':sys_ode}
-    F_ode = integrator('F_ode', 'cvodes', ode)
-
-    m_ode = {'x':zk3, 'p':uk3, 'ode':mdl_ode }
-    M_ode = integrator('M_ode', 'cvodes', m_ode)
-
-    #Output equation (Observations)
-    C = np.eye(n_st)
-    fy = mtimes(C,xk3) + vk3
-    h = Function('h',[xk3,vk3], [fy])
-    Ch = Function('Ch',[vertcat(xk3,thetah3)],[jacobian(fy,vertcat(xk3,thetah3))])
-    Chx = Function('Chx',[xk3],[jacobian(fy,xk3)])
-
-    uk_opt = np.array([2.5*10**(-6)*discritize,280])
-    xkp = np.array([V0, Ca0,Cb0,Cc0,T0,Tj0,Tj0_in])
-    theta_par = theta_nom
-    xkh0 = xkp
-    zkh0 =vertcat(xkh0,theta_par)
-    Sigmak_p = Qz
-
-    res6_uk[0,:] = np.array([2.5*10**(-6),280])
-    res6_xk[0,:] = xkp
-    res6_theta[0,:] = theta_par
-
-    for k in range(run_time):
-        time[k] = k
-
-        time_remain = run_time - k
-        if time_remain < n_pred:
-            n_pred = time_remain
-
-        #Compute the measurement
-        ykp = h(xkp,vkp[k,:].T)
-        #KF update step/measurment
-        Czh = Ch(zkh0)
-        Kkh = mtimes(Sigmak_p,mtimes(Czh.T,np.linalg.inv(mtimes(Czh,mtimes(Sigmak_p,
-                    Czh.T)) + R)))
-        #import pdb; pdb.set_trace()
-        zkh0 = zkh0 + mtimes(Kkh,(ykp - h(zkh0[0:n_st],np.zeros((n_st,1)))))
-        xkh0 = zkh0[0:n_st]
-        theta_par = zkh0[n_st:]
-        Sigmak = mtimes((np.eye(n_st+n_par) - mtimes(Kkh,Czh)),Sigmak_p)
-
-        # generate CE control sequence for nominal trajectory
-        Jce, qu_ce, lbq, ubq, g, lbg, ubg, qu_init = Dual.ce_mpc(F_ode,n_pred,n_ctrl,
-                                                        n_st,n_par,n_ip,uk_lb,uk_ub,
-                                                        xk_lb,xk_ub,xk3,theta_par,
-                                                        uk3,Tsamp,xkh0,uk_opt)
-        qp_mpc = {'x':vertcat(*qu_ce), 'f':Jce, 'g':vertcat(*g)}
-        solver_mpc = nlpsol('solver_mpc', MySolver, qp_mpc,{'ipopt':{'max_iter':1000,
-                            "check_derivatives_for_naninf":'yes',
-                            "print_user_options":'yes' }})
-        res_mpc = solver_mpc(x0=qu_init, lbx=lbq, ubx=ubq, lbg=lbg, ubg=ubg)
-        ce_res = res_mpc['x'].full().flatten()
-        uk_opt1 = ce_res[n_st:n_st+n_ip]
-
-        xce1 = ce_res[0::n_st+n_ip]
-        xce2 = ce_res[1::n_st+n_ip]
-        xce3 = ce_res[2::n_st+n_ip]
-        xce4 = ce_res[3::n_st+n_ip]
-        xce5 = ce_res[4::n_st+n_ip]
-        xce6 = ce_res[5::n_st+n_ip]
-        xce7 = ce_res[6::n_st+n_ip]
-        xk_ce_3 = horzcat(xce1,xce2,xce3,xce4,xce5,xce6,xce7)
-        uce1 = ce_res[7::n_st+n_ip]
-        uce2 = ce_res[8::n_st+n_ip]
-        uk_ce_3 = horzcat(uce1,uce2)
-
-        #Build and solve the dual optimization problem
-        Jd, qu, op, dev_l, dev_u,Fx = Dual.robust_dual(n_st,n_ip,n_op,n_par,n_pred,
-                                            Sigmak,mdl_ode,fy,xk3,uk3,slack,thetah3,
-                                            Tsamp,Q,Qz,R,uk_ce_3,xkh0,theta_par,
-                                            xk_ce_3,xk_lb,xk_ub)
-    #    nlp = {'x':vertcat(*qu), 'f': Jd} #test2
-        nlp = {'x':vertcat(*qu), 'f': Jd,  'g':vertcat(dev_u,dev_l)}  #test1
-    #    import pdb; pdb.set_trace()
-        solver = nlpsol('solver', MySolver, nlp, {'ipopt':{'max_iter':1000,
-                        "check_derivatives_for_naninf":'yes',
-                        "print_user_options":'yes' }})
-
-        #u_s_guess = np.append(np.append(np.append(uk_opt1,xkh0), np.zeros((n_st*n_pred,1))),np.zeros((n_st*n_pred,1)))
-        #u_s_ub = vertcat(vertcat(vertcat(uk_ub,slack_ub+np.array(xk_ub)),np.zeros((n_st*n_pred,1))),np.zeros((n_st*n_pred,1)))
-        #u_s_lb = vertcat(vertcat(vertcat(uk_lb,xk_lb+mtimes(slack_ub,-1)),np.zeros((n_st*n_pred,1))),np.zeros((n_st*n_pred,1)))
-
-
-        u_s_guess = np.append(np.append(uk_opt1,xkh0), np.zeros((n_st,1)))
-        u_s_ub = vertcat(vertcat(uk_ub,slack_ub+np.array(xk_ub)),slack_ub)
-        u_s_lb = vertcat(vertcat(uk_lb,[0,0,0,0,301,0,0]),slack_lb)
-
-        res = solver( x0=u_s_guess, ubx=u_s_ub, lbx=u_s_lb)
-        #res = solver( x0=u_s_guess, ubx=u_s_ub, lbx=u_s_lb, ubg=np.ones((14*n_pred,1)), lbg=np.ones((14*n_pred,1)))
-        #res = solver( x0=u_s_guess, ubx=u_s_ub, lbx=u_s_lb, ubg=np.ones((14,1)), lbg=np.ones((14,1)))
-
-        uk_opt = res['x'].full().flatten()[0:2]
-        x_dual, u_dual = Dual.view_tradj(uk_opt,uk_ce_3,xkh0,n_pred,n_st,Fx)
-
-        if sum(res['x'].full().flatten()[9:]) != 0 :
-            slk_opt = res['x'].full().flatten()[9:16]
-
-        import pdb; pdb.set_trace()
-
-        #Simulate the system
-        x_end = F_ode(x0=xkp, p=vertcat(theta_act,uk_opt))
-        xkp = x_end['xf'].full()
-        xkp = xkp.T
-
-        #KF prediction
-        Az = Jz3(xkh0,uk_opt,theta_par)
-        Jw = L3(xkh0,uk_opt,theta_par,wkp[k,:])
-        z_end = M_ode(x0=zkh0, p=uk_opt)
-        zkh0 = z_end['xf'].full()
-        Sigmak_p = mtimes(Az,mtimes(Sigmak,Az.T)) + Jw*Qz*Jw.T
-
-        if k < run_time-2:
-            uk_opt[0]=uk_opt[0]/discritize
-            res6_uk[k+1,:] = uk_opt
-            uk_opt[0]=uk_opt[0]*discritize
-
-            res6_xk[k+1,:] = xkp
-            res6_theta[k+1,:] = [theta_par[0],theta_par[1]]
-        else:
-            res6_xk[k+1,:] = xkp
-            res6_theta[k+1,:] = [theta_par[0],theta_par[1]]
-    solve_time[5] =  Time.time() - start
 
 
 if save2csv:

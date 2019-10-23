@@ -24,7 +24,7 @@ plots = 0
 
 #problem run time
 Tsamp = 4
-run_time = 600
+run_time = 610
 discritize = 60 * Tsamp # [=] seconds/(min) - discritze in two min
 #Define the controller
 n_pred = 140
@@ -81,7 +81,7 @@ if multi_sweep:
         wk4 = SX.sym('wk4',n_st)
 
         #Define the system equations with unknown parameters
-        dx1= (1/theta)*(1-xk4[0])- k0*xk4[0]*exp(-M/xk4[1]) #+ .00084936-.00000535;
+        dx1= (1/theta)*(1-xk4[0])- k0*xk4[0]*exp(-M/xk4[1])
         dx2= (1/theta)*(xf-xk4[1])+k0*xk4[0]*exp(-M/xk4[1]) - alpha*uk4[0]*(xk4[1]-xc)
 
         mdl_ode = vertcat(dx1,dx2)
@@ -100,10 +100,10 @@ if multi_sweep:
         res_mpc = solver_mpc(x0=qu_init, lbx=lbq, ubx=ubq, lbg=lbg, ubg=ubg)
         res = res_mpc['x'].full().flatten()
 
-        xres = res[0:601*2]
+        xres = res[0:(run_time+1)*2]
         xce1 = xres[0::n_st]
         xce2 = xres[1::n_st]
-        uce1 = res[601*2:]
+        uce1 = res[(run_time)*2:]
 
         if False: #verify the nominal trajectory
             plt.plot(range(len(xce1)),xce1)
