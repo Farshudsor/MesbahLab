@@ -23,17 +23,14 @@ gen_nom = 1
 plots = 0
 
 #problem run time
-Tsamp = 4
-run_time = 610
+Tsamp = 3
+run_time = 600
 discritize = 60 * Tsamp # [=] seconds/(min) - discritze in two min
 #Define the controller
-n_pred = 140
+#n_pred = 420
 n_ctrl = 140
 #Define the problem size
 n_st = 2;   n_ip = 1; n_par = 0
-
-res_xk = np.zeros((run_time+1,n_st));
-res_uk = np.zeros((run_time,n_ip))
 
 #backoffs; alpha for upper coinstraint, beta for Lower
 # for alpha and beta, [0] for u1, [1] for x1, [2] for x2
@@ -58,27 +55,24 @@ if multi_sweep:
         xf = .3947
         xc = .3816
         M = 5
-        alpha = .117
+        alpha = 0.117
         x0 = [0.9831,0.3918]
         xe  = [.2632,.6519]
 
         #Lower and upper bound on inputs and states
         uk_lb = [.12];        uk_ub = [1.999]
+        #uk_lb = [.0];        uk_ub = [inf]
         xk_lb = [0, 0 ];    xk_ub = [1, 1]
-
-        # generate noise
-        A = np.random.uniform(0,.001,run_time)
-        omega = np.random.uniform(0,1,run_time)
-        wkp = np.zeros((run_time, n_st))
-        wkp[:,1] = A*np.sin(omega)
 
         #########################################
         ##  Define system
         ######################################
         #Define the system states
         xk4 = SX.sym('xk4',n_st)
+        xks = x0
         uk4 = SX.sym('uk4',n_ip)
-        wk4 = SX.sym('wk4',n_st)
+        uks = .71
+        wk4 = SX.sym('wk4',1)
 
         #Define the system equations with unknown parameters
         dx1= (1/theta)*(1-xk4[0])- k0*xk4[0]*exp(-M/xk4[1])
@@ -87,8 +81,26 @@ if multi_sweep:
         mdl_ode = vertcat(dx1,dx2)
         m_ode = {'x':xk4, 'p':uk4, 'ode':mdl_ode }
         M_ode = integrator('M_ode', 'cvodes', m_ode)
+        fun = Function('fun', [xk4,uk4], [mdl_ode])
 
-        uk_opt = .71
+        A11= (1/theta) - k0*exp(-M/xks[1])
+        A12= - k0*xks[0]*exp(-M/xks[1]) *(-M/xks[1]**2)
+        A21= k0*exp(-M/xks[1])
+        A22= (1/theta) + k0*xks[0]*exp(-M/xks[1]) *(-M/xks[1]**2) - alpha*uks
+
+        B11 = 0
+        B12 = - alpha*(xks[1]-xc)
+
+        A = horzcat(vertcat(A11,A21), vertcat(A12,A22))
+        B = vertcat(B11,B12)
+        lin_fun = Function('lin_fun', [xk4,uk4], [mtimes(A,(xk4-xks)) + mtimes(B,(uk4-uks))])
+        test1 = lin_fun(x0,.71)
+        test2 = lin_fun(xe,1.1)
+        l_ode = {'x':xk4, 'p':uk4, 'ode':lin_fun }
+        L_ode = integrator('M_ode', 'cvodes', l_ode)
+
+        import pdb; pdb.set_trace()
+        uk_opt = .741
 
         Jce,qu_ce,lbq,ubq,g,lbg,ubg,qu_init=Dual.ce_mpc(M_ode,run_time,n_ctrl,
                                             n_st,n_par,n_ip,uk_lb,uk_ub,xk_lb,
@@ -103,14 +115,27 @@ if multi_sweep:
         xres = res[0:(run_time+1)*2]
         xce1 = xres[0::n_st]
         xce2 = xres[1::n_st]
-        uce1 = res[(run_time)*2:]
+        uce1 = res[(run_time+1)*2:]
 
-        if False: #verify the nominal trajectory
+        xt = x0
+        x_t = np.zeros((run_time,n_st))
+        if True: #verify the nominal trajectory
+            for i9 in range(run_time):
+                if i9%Tsamp == 0:
+                    run = i9/Tsamp
+                time+=[i9]
+                xt = M_ode(x0=xt, p=uce1[run])
+                xt = xt['xf']
+                x_t[i9,:] = xt.T
+
             plt.plot(range(len(xce1)),xce1)
             plt.plot(range(len(xce1)),xce2)
+            plt.plot(range(run_time), x_t[:,0], ':')
+            plt.plot(range(run_time), x_t[:,1], ':')
             plt.plot(range(len(xce1)),xe[0]*np.ones((len(xce1),1)))
             plt.plot(range(len(xce1)),xe[1]*np.ones((len(xce1),1)))
             plt.show()
+            import pdb; pdb.set_trace()
 
         res_xk = horzcat(xce1,xce2)
         res_uk = uce1

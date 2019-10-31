@@ -17,24 +17,74 @@ import pdb
 import csv
 import time as Time
 
+
+def writeData_2(solve_time, wkp,res_uk,res_xk,res4_uk,res4_xk,run_time,
+                    alpha, beta):
+
+    csv_file_x1 = "./results/x1.csv"
+    csv_file_x2 = "./results/x2.csv"
+    csv_file_x1_nom = "./results/Nom_x1.csv"
+    csv_file_x2_nom = "./results/Nom_x2.csv"
+    csv_file_u1 = "./results/u1.csv"
+    csv_file_u1_nom = "./results/Nom_u1.csv"
+    csv_file_rv = "./results/RandomParameters.csv"
+    csv_file3 = "./results/time.csv"
+
+    File = open(csv_file_x1, 'a')
+    with File:
+        writer = csv.writer(File)
+        writer.writerow([ res4_xk[:,0]])
+
+    File = open(csv_file_x2, 'a')
+    with File:
+        writer = csv.writer(File)
+        writer.writerow([ res4_xk[:,1]])
+
+    File = open(csv_file_x1_nom, 'a')
+    with File:
+        writer = csv.writer(File)
+        writer.writerow([ res_xk[:,0]])
+
+    File = open(csv_file_x2_nom, 'a')
+    with File:
+        writer = csv.writer(File)
+        writer.writerow([ res_xk[:,1]])
+
+    File = open(csv_file_u1, 'a')
+    with File:
+        writer = csv.writer(File)
+        writer.writerow([res4_uk[:]])
+
+    File = open(csv_file_u1_nom, 'a')
+    with File:
+        writer = csv.writer(File)
+        writer.writerow([res_uk[:]])
+
+    File2 = open(csv_file_rv, 'a')
+    with File2:
+        writer = csv.writer(File2)
+        writer.writerow([ alpha , beta,wkp ])
+
+    File3 = open(csv_file3, 'a')
+    with File3:
+        writer = csv.writer(File3)
+        writer.writerow([ 'run', 'solve times' ])
+        writer.writerow([ seed ,solve_time ])
+
+
 #########################################
 ##  Set-up
 ######################################
-csv_file = "./results/"+testname+"_"+"results.csv"
-csv_file2 = "./results/"+testname+"_stocastic_values.csv"
-csv_file3 = "./results/"+testname+"_time.csv"
 save2csv = True
 np.random.seed(seed)
 
-# Run Case 1, 2, 3, 4, and 5
-gen_nom = 0
+# Run Case 1, 2, 3, and 4,
 runC2 = 0
 runC3 = 0
 runC4 = 1
 runC5 = 0
-runC6 = 0
 
-Tsamp = 4
+Tsamp = 3
 run_time = 600
 discritize = 60 * Tsamp # [=] seconds/(min) ; discritze in two min
 #Define the controller
@@ -78,11 +128,6 @@ wkp = A*np.sin(omega)
 #Build results storage
 time = np.zeros((run_time,1))
 
-#Case 1 -
-if gen_nom:
-    res_xk = np.zeros((run_time+1,n_st))
-    res_theta = np.zeros((run_time+1,n_par))
-    res_uk = np.zeros((run_time,n_ip))
 #Case 2 - CE control with unknown parameters
 res2_xk = np.zeros((run_time+1,n_st))
 res2_theta = np.zeros((run_time+1,n_par))
@@ -106,35 +151,6 @@ res6_uk = np.zeros((run_time,n_ip))
 
 solve_time = np.zeros((6,1))
 
-
-
-def writeData_2(solve_time, wkp,res_uk,res_xk,res2_uk,res2_xk,res2_theta,
-            res3_uk,res3_xk,res3_theta,res4_uk,res4_xk,res4_theta,
-            res5_uk,res5_xk,res5_theta,res6_uk,res6_xk,res6_theta,
-            run_time,csv_file, alpha):
-    File = open(csv_file, 'a')
-    with File:
-        writer = csv.writer(File)
-
-        writer.writerow(['   States  ' ])
-        writer.writerow([ 'Tube', 'x1' ,res4_xk[:,0]])
-        writer.writerow([ 'Tube', 'x2' , res4_xk[:,1]])
-        writer.writerow(['   Inputs   '])
-        writer.writerow([ 'Tube', 'u1', res4_uk[:,0]])
-
-    File2 = open(csv_file2, 'a')
-    with File2:
-        writer = csv.writer(File2)
-        import pdb; pdb.set_trace()
-
-        writer.writerow([ [alpha[i5] for i5 in range(n_st+n_ip)], [beta[i6] for i6 in range(n_st+n_ip)],[wkp[i7,1] for i7 in range(run_time)]])
-
-    File3 = open(csv_file3, 'a')
-    with File3:
-        writer = csv.writer(File3)
-
-        writer.writerow([ 'run', 'solve times' ])
-        writer.writerow([ seed ,solve_time ])
 
 
 
@@ -426,8 +442,6 @@ if runC4:
         if k%Tsamp ==0:
             res_xk_p = res_xk[k:k+n_pred,:]
             res_uk_p = res_uk[k:k+n_pred]
-            if k == 144:
-                import pdb; pdb.set_trace()
             Jce, qu_ce, lbq, ubq, g, lbg, ubg, qu_init = Dual.tube_mpc(M_ode,n_pred,n_ctrl,n_st,n_par,n_ip,uk_lb,uk_ub,xk_lb,xk_ub,xk4,uk4,Tsamp,xkp,uk_opt,res_xk_p,res_uk_p,k-1)
             qp_mpc = {'x':vertcat(*qu_ce), 'f':Jce, 'g':vertcat(*g)}
             solver_mpc = nlpsol('solver_mpc', MySolver, qp_mpc,{'ipopt':{'max_iter':1000,"check_derivatives_for_naninf":'yes', "print_user_options":'yes' }})
@@ -439,10 +453,10 @@ if runC4:
         xkp = x_end['xf']
 
         if k < run_time-2:         # Save results
-            res4_uk[k+1,:] =uk_opt
-            res4_xk[k+1,:] =xkp.T
+            res4_uk[k+1,:] = uk_opt
+            res4_xk[k+1,:] = xkp.T
         else:
-            res4_xk[k+1,:] =xkp.T
+            res4_xk[k+1,:] = xkp.T
     solve_time[3] =  Time.time() - start
 
 if runC5:
@@ -595,7 +609,5 @@ if runC5:
 
 
 if save2csv:
-    writeData_2(solve_time, wkp,res_uk,res_xk,res2_uk,res2_xk,res2_theta,
-                res3_uk,res3_xk,res3_theta,res4_uk,res4_xk,res4_theta,
-                res5_uk,res5_xk,res5_theta,res6_uk,res6_xk,res6_theta,
-                run_time,csv_file, alpha)
+    writeData_2(solve_time, wkp,res_uk,res_xk,res4_uk,res4_xk,
+                run_time, alpha, beta)

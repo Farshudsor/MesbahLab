@@ -28,6 +28,12 @@ def ce_mpc(F_ode,n_pred,n_ctrl,n_st,n_par,n_ip,uk_lb,uk_ub,xk_lb,xk_ub,xk,uk,
     lbg = []
     ubg = []
 
+    x0 = [0.9831,0.3918]
+    #x0 = [0.3918,.9831]
+    xe=[.26324,.65194]
+    ue = .71
+    #xe=[.65194,.26324]
+
     X0 = MX.sym('X0', n_st)
     qu_ce += [X0]
     lbq += [xkh0[i1].__float__() for i1 in range(n_st)]
@@ -48,24 +54,31 @@ def ce_mpc(F_ode,n_pred,n_ctrl,n_st,n_par,n_ip,uk_lb,uk_ub,xk_lb,xk_ub,xk,uk,
             lbq_u += [uk_lb[i1] for i1 in range(n_ip)]
             ubq_u += [uk_ub[i1] for i1 in range(n_ip)]
             qu_init_u += [uk_opt]
-            if i != 0:
-                Uk_ = Uk
+        #if i != 0:
+        #    Uk_ = Uk
 
         x_end = F_ode(x0=Xk, p=vertcat(Uk))
         xk_end = x_end['xf']
 
-        Jce = Jce + .5*(dot(Xk-xk_end,Xk-xk_end)) + .5*(dot(Uk-Uk_,Uk-Uk_))
+        #Jce = Jce + 0.5*((Xk[0]-x0[0])**2+(Xk[1]-x0[1])**2+Uk**2)
+        #Jce = Jce + 0.5*((xk_end[0])**2+(xk_end[1])**2+Uk**2)
+        Jce = Jce + .5*dot(Xk-xe,Xk-xe) + .5*(Uk-ue)
 
         Xk = MX.sym('X_'+str(i+1),n_st)
         qu_ce += [Xk]
-        if i>=420:
-            lbq+= [.26320,.65190]
-            ubq+= [.26324,.65194]
+
+        if i>=n_pred-1 :
+        #if True:
+            lbq += [xe[i1]-.01 for i1 in range(n_st)]
+            ubq += [xe[i1]+.01 for i1 in range(n_st)]
+            #Jce = Jce + 10.5*dot(Xk-xe,Xk-xe)
+        #import pdb; pdb.set_trace()
+        #Jce = Jce + 0.5*((Xk[0]-x0[0])**2+(Xk[1]-x0[1])**2)#+Uk**2)
         else:
             lbq += [xk_lb[i1] for i1 in range(n_st)]
             ubq += [xk_ub[i1] for i1 in range(n_st)]
 
-        qu_init += [xkh0[i1].__float__() for i1 in range(n_st)]
+        qu_init +=[xkh0[i1].__float__() for i1 in range(n_st)]
 
         g += [xk_end-Xk]
         lbg += [0]*(n_st)
@@ -75,6 +88,7 @@ def ce_mpc(F_ode,n_pred,n_ctrl,n_st,n_par,n_ip,uk_lb,uk_ub,xk_lb,xk_ub,xk,uk,
     qu_init +=[qu_init_u[i3] for i3 in range(len(qu_init_u))]
     lbq += [lbq_u[i4] for i4 in range(len(lbq_u))]
     ubq += [ubq_u[i5] for i5 in range(len(ubq_u))]
+
     return Jce, qu_ce, lbq, ubq, g, lbg, ubg, qu_init
 
 def tube_mpc(F_ode,n_pred,n_ctrl,n_st,n_par,n_ip,uk_lb,uk_ub,xk_lb,xk_ub,xk,uk,
@@ -114,7 +128,7 @@ def tube_mpc(F_ode,n_pred,n_ctrl,n_st,n_par,n_ip,uk_lb,uk_ub,xk_lb,xk_ub,xk,uk,
         x_end = F_ode(x0=Xk, p=vertcat(Uk))
         xk_end = x_end['xf']
 
-        Jce = Jce + mtimes(mtimes((Xk- xk_ref[i,:].T).T,Qx),(Xk- xk_ref[i,:].T))
+        Jce = Jce + mtimes(mtimes((xk_end- xk_ref[i,:].T).T,Qx),(xk_end- xk_ref[i,:].T))
 
         #import pdb; pdb.set_trace()
         Xk = MX.sym('X_'+str(i+1),n_st)
