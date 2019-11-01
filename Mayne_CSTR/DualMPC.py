@@ -397,7 +397,7 @@ if runC3:
 
 if runC4:
     start = Time.time()
-    n_pred = 140
+    n_pred = 420
 
     #########################################
     ##  Define system
@@ -408,9 +408,9 @@ if runC4:
     wk4 = SX.sym('wk4',1)
 
     #Define the system equations with unknown parameters
-    dx1= (1/theta)*(1-xk4[0])- k0*xk4[0]*exp(-M/xk4[1])
-    dx2=(1/theta)*(xf-xk4[1])+ k0*xk4[0]*exp(-M/xk4[1]) - alpha*uk4[0]*(xk4[1]-xc)
-    dx2w= (1/theta)*(xf-xk4[1])+k0*xk4[0]*exp(-M/xk4[1]) - alpha*uk4[0]*(xk4[1]-xc)+ wk4[0]
+    dx1= (1.0/theta)*(1-xk4[0])- k0*xk4[0]*exp(-M/xk4[1])
+    dx2=(1.0/theta)*(xf-xk4[1])+ k0*xk4[0]*exp(-M/xk4[1]) - alpha*uk4[0]*(xk4[1]-xc)
+    dx2w= (1.0/theta)*(xf-xk4[1])+k0*xk4[0]*exp(-M/xk4[1]) - alpha*uk4[0]*(xk4[1]-xc)+ wk4[0]
 
     sys_ode = vertcat(dx1,dx2w)
     mdl_ode =vertcat(dx1,dx2)
